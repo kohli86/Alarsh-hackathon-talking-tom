@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mochi's Healthy Week – SDG 3 Game</title>
+<style>
+:root{--bg:#e6f6f2;--card:#fff;--ink:#16324f;--mut:#58708a;--acc:#1f9d8a;--line:#cfe3df;--warn:#e76f51}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1f2b;--card:#172c3b;--ink:#eaf3f8;--mut:#9db4c4;--acc:#3cc9b4;--line:#2a4558}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:"Trebuchet MS",system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;justify-content:center;transition:background .6s}
+body.night{background:#0a1220}
+#app{width:100%;max-width:460px;padding:14px;display:flex;flex-direction:column;gap:10px}
+header{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.pill{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:4px 12px;font-size:14px}
+#stage{background:var(--card);border:2px solid var(--line);border-radius:28px;padding:10px;text-align:center;position:relative}
+#bubble{min-height:46px;margin:0 auto 4px;max-width:90%;background:var(--bg);border-radius:16px;padding:8px 12px;font-size:15px}
+#mochi{cursor:pointer;width:210px;max-width:70%;-webkit-tap-highlight-color:transparent}
+#mochi.bounce{animation:b .35s}@keyframes b{50%{transform:scale(1.08,.92)}}
+@media(prefers-reduced-motion:reduce){#mochi.bounce{animation:none}}
+#stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.st{font-size:13px}.bar{height:10px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:2px}
+.bar i{display:block;height:100%;background:var(--acc);transition:width .4s}.bar i.low{background:var(--warn)}
+#acts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+button{font:inherit;cursor:pointer;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;padding:8px 2px}
+button:hover{border-color:var(--acc)}button:focus-visible{outline:3px solid var(--acc)}
+#acts button{font-size:12px}#acts span{display:block;font-size:22px}
+button.go{background:var(--acc);color:#fff;border-color:var(--acc);padding:10px 18px;font-weight:700}
+#echo{display:flex;gap:6px}#echo input{flex:1;font:inherit;padding:8px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+#fact{font-size:13px;background:var(--card);border-left:5px solid var(--acc);border-radius:8px;padding:8px 10px;min-height:44px}
+#modal{position:fixed;inset:0;background:rgba(10,20,30,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:5}
+#box{background:var(--card);border-radius:22px;padding:18px;max-width:420px;width:100%;max-height:90vh;overflow:auto;text-align:center}
+#box h2{margin:0 0 8px}#box p{color:var(--mut);margin:6px 0}
+.opts{display:grid;gap:8px;margin-top:10px}.opts button{padding:10px;text-align:left}
+.prog{height:14px;background:var(--line);border-radius:8px;overflow:hidden;margin:10px 0}.prog i{display:block;height:100%;width:0;background:var(--acc)}
+</style></head><body>
+<div id="app">
+ <header><span class="pill">📅 Day <b id="day">1</b>/7</span><span class="pill">❤️ Health <b id="hp">80</b>%</span><span class="pill">📘 Facts <b id="fc">0</b></span></header>
+ <div id="stage"><div id="bubble"></div><div id="mochiwrap"></div></div>
+ <div id="stats"></div>
+ <div id="acts">
+  <button onclick="feed()"><span>🍎</span>Feed</button>
+  <button onclick="wash()"><span>🧼</span>Wash</button>
+  <button onclick="play()"><span>🏃</span>Exercise</button>
+  <button onclick="talk()"><span>💬</span>Talk</button>
+  <button id="sleepb" onclick="sleep()"><span>😴</span>Sleep</button>
+ </div>
+ <div id="echo"><input id="say" maxlength="60" placeholder="Say something, Mochi repeats it!" aria-label="Message for Mochi"><button onclick="echo()">🔊</button></div>
+ <div id="fact">Tap Mochi to say hi. Every action teaches a real health fact.</div>
+</div>
+<div id="modal"><div id="box"></div></div>
+<script>
+const $=s=>document.querySelector(s);
+const STATS=[['hunger','🍎','Food'],['energy','⚡','Energy'],['hygiene','🧼','Clean'],['fitness','💪','Fitness'],['mood','😊','Mood']];
+let S,timer,open=false,facts=0,mt;
+const hp=()=>Math.round(STATS.reduce((a,s)=>a+S[s[0]],0)/5);
+const add=(k,v)=>S[k]=Math.max(0,Math.min(100,S[k]+v));
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+
+function newGame(){
+ clearInterval(timer);S={hunger:80,energy:80,hygiene:80,fitness:60,mood:80,day:1,t:0,sleep:false,junk:0};facts=0;
+ document.body.classList.remove('night');$('#sleepb').innerHTML='<span>😴</span>Sleep';
+ closeM();timer=setInterval(tick,1000);say("Hi! I'm Mochi! Help me stay healthy for 7 days!");render();
+}
+function tick(){
+ if(open)return;S.t++;
+ add('hunger',-1.3);add('energy',S.sleep?5:-.9);add('hygiene',S.sleep?-.3:-1);add('fitness',-.4);add('mood',S.sleep?.5:-.6);
+ if(S.hunger<25||S.hygiene<25||S.energy<20)add('mood',-.8);
+ if(S.sleep&&S.energy>=100)sleep();
+ if(S.t%8==0&&!S.sleep)complain();
+ if(S.t%45==0){S.day++;S.junk=0;if(S.day>7)return end(true);say("Day "+S.day+" of 7! Keep going!")}
+ if(hp()<=15)return end(false);
+ render();
+}
+function complain(){
+ if(S.hunger<30)say("My tummy is rumbling… 🍽️");else if(S.hygiene<30)say("I feel icky. Can I wash my hands? 🧼");
+ else if(S.energy<25)say("So sleepy… 😴");else if(S.mood<30)say("I feel sad. Can we talk? 💬");else if(S.fitness<25)say("I need to move my body! 🏃");
+}
+function render(){
+ $('#day').textContent=Math.min(S.day,7);$('#hp').textContent=hp();$('#fc').textContent=facts;
+ $('#stats').innerHTML=STATS.map(([k,i,n])=>`<div class="st">${i} ${n}<div class="bar"><i class="${S[k]<30?'low':''}" style="width:${S[k]}%"></i></div></div>`).join('');
+ const h=hp(),col=`hsl(${Math.round(h*1.3+10)},65%,62%)`;
+ const mouth=S.mood>60?'M80 128 Q100 150 120 128':S.mood>30?'M85 134 H115':'M82 142 Q100 122 118 142';
+ const eyes=S.sleep?'<path d="M62 100 q10 8 20 0 M118 100 q10 8 20 0" stroke="#222" stroke-width="4" fill="none" stroke-linecap="round"/>'
+  :'<circle cx="72" cy="100" r="9" fill="#222"/><circle cx="128" cy="100" r="9" fill="#222"/><circle cx="75" cy="97" r="3" fill="#fff"/><circle cx="131" cy="97" r="3" fill="#fff"/>';
+ const dirt=S.hygiene<35?'<circle cx="55" cy="130" r="5" fill="#7a5230"/><circle cx="150" cy="75" r="4" fill="#7a5230"/><circle cx="140" cy="140" r="6" fill="#7a5230"/><text x="150" y="40" font-size="22">🪰</text>':'';
+ const zz=S.sleep?'<text x="140" y="45" font-size="24" fill="#8ecae6">Z z z</text>':'';
+ $('#mochiwrap').innerHTML=`<svg id="mochi" viewBox="0 0 200 200" role="img" aria-label="Mochi the pet" onclick="poke()"><ellipse cx="100" cy="185" rx="55" ry="8" fill="rgba(0,0,0,.12)"/>
+ <ellipse cx="55" cy="40" rx="14" ry="26" fill="${col}"/><ellipse cx="145" cy="40" rx="14" ry="26" fill="${col}"/>
+ <ellipse cx="100" cy="115" rx="78" ry="68" fill="${col}"/><ellipse cx="100" cy="145" rx="42" ry="30" fill="rgba(255,255,255,.35)"/>
+ ${eyes}<ellipse cx="55" cy="122" rx="10" ry="6" fill="#ff9aa2" opacity=".6"/><ellipse cx="145" cy="122" rx="10" ry="6" fill="#ff9aa2" opacity=".6"/>
+ <path d="${mouth}" stroke="#222" stroke-width="4" fill="none" stroke-linecap="round"/>${dirt}${zz}</svg>`;
+}
+function say(t,speak){$('#bubble').textContent=t;if(speak)voice(t)}
+function voice(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.pitch=2;u.rate=1.1;speechSynthesis.speak(u)}catch(e){}}
+function fact(t){facts++;$('#fact').textContent='📘 '+t;render()}
+function poke(){if(S.sleep)return say("Zzz… (Mochi is sleeping)");const m=$('#mochi');m.classList.add('bounce');setTimeout(()=>m&&m.classList.remove('bounce'),350);add('mood',2);say(pick(["Hehe, that tickles! 😆","Hello friend!","Yay, you're here!"]));render()}
+function echo(){const v=$('#say').value.trim();if(!v||S.sleep)return;say(v,true);$('#say').value='';add('mood',3);render()}
+function openM(h){open=true;$('#box').innerHTML=h;$('#modal').style.display='flex'}
+function closeM(){open=false;clearTimeout(mt);$('#modal').style.display='none'}
+const busy=()=>S.sleep&&(say("Shh… Mochi is sleeping 😴"),true);
+
+const FOODS=[['🍎','Apple',{hunger:14,mood:3,fitness:2},"Fruit and vegetables give vitamins that help the body fight illness (SDG 3.4).",0],
+['🥦','Veggies',{hunger:16,fitness:4,energy:3},"Eating vegetables daily lowers the risk of heart disease and diabetes (SDG 3.4).",0],
+['💧','Clean water',{hunger:5,energy:5,mood:2},"Safe drinking water prevents diseases like cholera and typhoid (SDG 3.3 and 3.9).",0],
+['🍔','Burger',{hunger:20,mood:10,fitness:-8},"Fast food is fine as a rare treat, but too much raises the risk of obesity.",1],
+['🍬','Candy',{hunger:6,mood:14,energy:6,fitness:-10},"Too much sugar causes tooth decay and diabetes. Choose it rarely.",1]];
+function feed(){if(busy())return;
+ openM(`<h2>What should Mochi eat?</h2><p>Pick wisely!</p><div class="opts">${FOODS.map((f,i)=>`<button onclick="eat(${i})">${f[0]} ${f[1]}</button>`).join('')}</div><p><button onclick="closeM()">Cancel</button></p>`)}
+function eat(i){const f=FOODS[i];closeM();for(const k in f[2])add(k,f[2][k]);
+ if(f[4]){S.junk++;if(S.junk>=3){add('mood',-12);add('energy',-10);S.junk=0;say("Ouch, tummy ache from too many treats! 🤢");fact("Eating junk food too often causes tummy aches and long-term illness.");return render()}}
+ say(f[4]?"Yum! But treats should be rare 😋":"Yum, healthy food! 😋");fact(f[3]);render()}
+
+function wash(){if(busy())return;let n=0;
+ openM(`<h2>Wash Mochi's hands 🧼</h2><p>Scrub 10 times for 20 seconds of germ-busting!</p><div class="prog"><i id="pg"></i></div><button class="go" id="sb">Scrub!</button>`);
+ $('#sb').onclick=()=>{n++;$('#pg').style.width=n*10+'%';if(n>=10){closeM();add('hygiene',60);add('mood',5);say("Sparkly clean! ✨");fact("Washing hands with soap prevents many infections like flu and diarrhoea (SDG 3.3).");render()}}}
+
+function play(){if(busy())return;if(S.energy<20)return say("Too tired to exercise. Let me sleep first! 😴");let n=0;
+ openM(`<h2>Exercise time 🏃</h2><p>Tap Jump as many times as you can in 6 seconds!</p><div class="prog"><i id="pg"></i></div><button class="go" id="jb">Jump!</button>`);
+ $('#jb').onclick=()=>{n++;$('#pg').style.width=Math.min(100,n/20*100)+'%'};
+ mt=setTimeout(()=>{closeM();const g=Math.min(n,20);add('fitness',g*1.8);add('mood',g*.6);add('energy',-15);add('hunger',-10);add('hygiene',-8);
+  say(g>12?"Wow, I'm so strong! 💪":"Good try! Let's do more later.");fact("Regular activity keeps the heart strong and helps mental health (SDG 3.4).");render()},6000)}
+
+const WORRIES=[["I'm nervous about my exam…",["Take deep breaths. I'm here to listen.","Stop worrying, it's silly.","Just ignore it."]],
+["Nobody played with me today. I feel lonely.",["I'll play with you. You matter to me!","Everyone is busy, get over it.","Lonely people are boring."]],
+["I feel sad and I don't know why.",["It's okay to feel sad. Want to talk, or tell a trusted adult?","Don't be sad.","Sadness is weakness."]]];
+function talk(){if(busy())return;const w=pick(WORRIES);const o=shuffle(w[1].map((t,i)=>[t,i==0]));
+ openM(`<h2>Mochi says:</h2><p><b>"${w[0]}"</b></p><div class="opts">${o.map((x,i)=>`<button onclick="reply(${x[1]})">${x[0]}</button>`).join('')}</div>`)}
+function reply(ok){closeM();if(ok){add('mood',25);say("Thank you. I feel much better! 💛");fact("Listening kindly and asking for help early supports mental health (SDG 3.4).")}
+ else{add('mood',-6);say("That didn't help… 😔");fact("Dismissing feelings can make people feel worse. Talking openly helps.")}render()}
+
+function sleep(){if(S.sleep){S.sleep=false;document.body.classList.remove('night');$('#sleepb').innerHTML='<span>😴</span>Sleep';say("Good morning! ☀️");fact("Good sleep helps the body heal and keeps the mind balanced.");return render()}
+ if(S.energy>80)return say("I'm not sleepy yet!");S.sleep=true;document.body.classList.add('night');$('#sleepb').innerHTML='<span>☀️</span>Wake';say("Zzz…");render()}
+
+function end(win){clearInterval(timer);const h=hp();
+ openM(win?`<h2>🏆 Healthy Hero!</h2><p>Mochi stayed healthy for 7 days.</p><p>Final health: <b>${h}%</b><br>Health facts learned: <b>${facts}</b></p><p>Small daily habits (food, hygiene, exercise, sleep and kindness) protect health for everyone. That is SDG 3.</p><button class="go" onclick="newGame()">Play again</button>`
+ :`<h2>🏥 Mochi needs a doctor</h2><p>Mochi got too unwell on day ${S.day}. Real people need clinics and care too, which is why SDG 3 matters.</p><p>Facts learned: <b>${facts}</b></p><button class="go" onclick="newGame()">Try again</button>`)}
+
+openM(`<h2>🐾 Mochi's Healthy Week</h2><p>Mochi just moved to your village, but nobody taught Mochi how to stay healthy. Be Mochi's buddy for 7 days (45 seconds each).</p><p>Feed healthy food, wash hands, exercise, sleep, and listen when Mochi is sad. Keep all five bars up!</p><p><small>Supports UN SDG 3: Good Health and Well-being</small></p><button class="go" onclick="newGame()">Start</button>`);
+S={hunger:80,energy:80,hygiene:80,fitness:60,mood:80,day:1,t:0,sleep:false,junk:0};render();say("Hi! I'm Mochi!");
+</script></body></html>
